@@ -1,3 +1,8 @@
-retina-face
-tf-keras
+cython
+numpy
+opencv-python
+pyopengl
 loguru
+requests
+tensorflow
+retina-face
