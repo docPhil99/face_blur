@@ -6,7 +6,7 @@ Blur faces in video files
 
 This is a general face blurrer for video only. Not svo files
 
-## Install
+### Install
 
 The code uses rentina-face to detect faces. Ideally this wants to run on a CUDA GPU.
 
@@ -25,6 +25,7 @@ pip install loguru
 ## SVO face blur
 
 Try `pip install -r requirements.txt`
+Then install the ZED SDK.
 
 Run `python blur_face_svo.py --input your_video.svo2 --output_dir out_directory`
 This will create a directory _out_directory_ and within that a directory based on the filename of
