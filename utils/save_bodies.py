@@ -44,6 +44,41 @@ def serializeBodies(bodies):
         out["body_list"].append(serializeBodyData(sk))
     return out
 
+def _cam_pam(obj):
+    out={}
+    out["cx"] = obj.cx
+    out["cy"] = obj.cy
+    out["d_fov"] = obj.d_fov
+    out["focal_length_metric"] = obj.focal_length_metric
+    out["fx"] = obj.fx
+    out["fy"] = obj.fy
+    out["h_fov"] = obj.h_fov
+    out["v_fov"] = obj.v_fov
+    out["disto"] = obj.disto
+    return out
+
+def serializeConfig(config):
+    out={}
+    out["camera_model"] = str(config.camera_model)
+    out["serial_number"] = config.serial_number
+    out["fps"] = config.camera_configuration.fps
+    out["resolution"] = [config.camera_configuration.resolution.width, config.camera_configuration.resolution.height]
+    out["left_cam"] = _cam_pam(config.camera_configuration.calibration_parameters.left_cam)
+    out["right_cam"] = _cam_pam(config.camera_configuration.calibration_parameters.left_cam)
+    trans ={}
+    trans["m"] = config.camera_configuration.calibration_parameters.stereo_transform.m
+    trans["matrix_name"] = config.camera_configuration.calibration_parameters.stereo_transform.matrix_name
+    out["stereo_transform"] = trans
+
+    out["left_cam_raw"] = _cam_pam(config.camera_configuration.calibration_parameters_raw.left_cam)
+    out["right_cam_raw"] = _cam_pam(config.camera_configuration.calibration_parameters_raw.left_cam)
+    trans = {}
+    trans["m"] = config.camera_configuration.calibration_parameters_raw.stereo_transform.m
+    trans["matrix_name"] = config.camera_configuration.calibration_parameters_raw.stereo_transform.matrix_name
+    out["stereo_transform_raw"] = trans
+
+    return out
+
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):

@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import gzip
 import utils.viewer as gl
+import pickle
 
 class face_blur:
     def __init__(self):
@@ -35,7 +36,7 @@ class face_blur:
         face_blur = cv2.blur(face, (200, 200))
         image[bbox[1]:bbox[3], bbox[0]:bbox[2], :] = face_blur
         return image
-from utils.save_bodies import serializeBodies, NumpyEncoder
+from utils.save_bodies import serializeBodies, NumpyEncoder,serializeConfig
 
 class Body_Tracker:
     def __init__(self, camera, conf_threshold=40):
@@ -124,6 +125,7 @@ class SVO_Process:
         self.left_image_path = self.opt.output_directory/Path('left')
         self.right_image_path = self.opt.output_directory/Path('right')
         self.depth_image_path = self.opt.output_directory/Path('depth')
+        self.config_save_path = self.opt.output_directory/Path('config.json')
         self.left_image_path.mkdir(parents=True, exist_ok=True)
         self.right_image_path.mkdir(parents=True, exist_ok=True)
         self.depth_image_path.mkdir(parents=True, exist_ok=True)
@@ -159,6 +161,11 @@ class SVO_Process:
         # Set a maximum resolution, for visualisation confort
         resolution = self.cam.get_camera_information().camera_configuration.resolution
         config = self.cam.get_camera_information()
+
+
+        with open(self.config_save_path ,'w') as f:
+            config_dict = serializeConfig(config)
+            json.dump(config_dict, f, indent=4, cls=NumpyEncoder)
         #TODO save this information
 
         self.runtime = sl.RuntimeParameters()
