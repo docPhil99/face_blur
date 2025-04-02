@@ -177,6 +177,8 @@ class SVO_Process:
         self.mat = sl.Mat()
         self.svo_frame_rate = self.cam.get_init_parameters().camera_fps
         self.nb_frames = self.cam.get_svo_number_of_frames()
+        self._timestamps ={}
+
         logger.info(f"SVO contains {self.nb_frames}  frames at {self.svo_frame_rate} fps")
 
     def _save_image(self,filename,image, blur=False):
@@ -191,6 +193,7 @@ class SVO_Process:
 
         #left
         filename = self.left_image_path/Path(f'{self.svo_position:06}.png')
+        self._timestamps[f'{self.svo_position:06}.png']=self.cam.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_milliseconds()
         self._save_image(filename,self.left_image,blur=not self.opt.no_blur)
 
         filename = self.right_image_path / Path(f'{self.svo_position:06}.png')
@@ -229,7 +232,7 @@ class SVO_Process:
                 cv_img = self.left_image.get_data()
                 if self.opt.show_3D:
                     self.viewer.update_bodies(self.body_tracker.bodies)
-                    self.body_tracker.draw2D(cv_img)
+                self.body_tracker.draw2D(cv_img)
 
 
                 cv2.imshow("ViewL", cv_img)  # dislay both images to cv2
@@ -249,6 +252,9 @@ class SVO_Process:
                 logger.error("Grab ZED : ", err)
                 self.run_flag = False
         self.body_tracker.save_data(opt.output_directory)
+        with open(self.opt.output_directory/Path('timestamps.json'),'wt') as f:
+            json.dump(self._timestamps,f)
+
     def shutdown(self):
         if opt.show_3D:
             self.viewer.exit()
