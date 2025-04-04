@@ -4,8 +4,10 @@ import itertools
 from loguru import logger
 import subprocess
 import os
-
-
+"""
+Wrapper around blur_face_svo.py to process a whole directory 
+"""
+logger.info('Mass face processor')
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_directory', '-i', type=Path, help='Path to the SVO file')
 parser.add_argument('--output_directory', '-o', type=Path, help='Path to the output directory', required=True)

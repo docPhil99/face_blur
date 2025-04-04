@@ -16,20 +16,39 @@ from pathlib import Path
 import numpy as np
 import gzip
 import utils.viewer as gl
-import pickle
-import itertools
+from functools import wraps
+import time
+
+
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        # first item in the args, ie `args[0]` is `self`
+        print(f'Function {func.__name__} Took {total_time:.4f} seconds')
+        return result
+    return timeit_wrapper
+
+
 
 class face_blur:
     def __init__(self):
         pass
 
+
     @staticmethod
+    @timeit
     def blur(image):
         resp = RetinaFace.detect_faces(image)
+        bboxes =[]
         for key, face in resp.items():
             bbox = face['facial_area']
+            bboxes.append(bbox)
             image = face_blur._blur_face(image, bbox)
-        return image
+        return image, bboxes
 
     @staticmethod
     def _blur_face(image, bbox):
@@ -179,6 +198,7 @@ class SVO_Process:
         self.svo_frame_rate = self.cam.get_init_parameters().camera_fps
         self.nb_frames = self.cam.get_svo_number_of_frames()
         self._timestamps ={}
+        self.face_bbox={}
 
         logger.info(f"SVO contains {self.nb_frames}  frames at {self.svo_frame_rate} fps")
 
@@ -188,7 +208,9 @@ class SVO_Process:
         #drop alpha
         img = img[:,:,0:3]
         if blur:
-            img = face_blur.blur(img)
+            img,bbox = face_blur.blur(img)
+            self.face_bbox[filename.stem]=bbox
+
         cv2.imwrite(str(filename),img)
     def _save_images(self):
 
@@ -221,6 +243,7 @@ class SVO_Process:
     def process_loop(self):
         self.run_flag = True
         while self.run_flag:
+            start_time = time.perf_counter()
             err = self.cam.grab(self.runtime)
             if err == sl.ERROR_CODE.SUCCESS:
                 self.svo_position = self.cam.get_svo_position()
@@ -235,14 +258,11 @@ class SVO_Process:
                     self.viewer.update_bodies(self.body_tracker.bodies)
                 self.body_tracker.draw2D(cv_img)
 
-
-                cv2.imshow("ViewL", cv_img)  # dislay both images to cv2
-                #cv2.imshow("ViewR", self.right_image.get_data())  # dislay both images to cv2
-                #cv2.imshow("ViewD", self.depth_image.get_data())  # dislay both images to cv2
-
-                key = cv2.waitKey(10)
-                if key == ord('q'):
-                    self.run_flag = False
+                if not opt.no_display:
+                    cv2.imshow("ViewL", cv_img)
+                    key = cv2.waitKey(10)
+                    if key == ord('q'):
+                        self.run_flag = False
 
                 self.progress_bar(self.svo_position/ self.nb_frames * 100, 30)
             elif err == sl.ERROR_CODE.END_OF_SVOFILE_REACHED:  # Check if the .svo has ended
@@ -252,9 +272,14 @@ class SVO_Process:
             else:
                 logger.error("Grab ZED : ", err)
                 self.run_flag = False
+            end_time = time.perf_counter()
+            total_time = end_time - start_time
+            logger.debug(f"Frame time: {total_time} seconds")
         self.body_tracker.save_data(opt.output_directory)
         with open(self.opt.output_directory/Path('timestamps.json'),'wt') as f:
             json.dump(self._timestamps,f)
+        with open(self.opt.output_directory/Path('faces.json'),'wt') as f:
+            json.dump(self.face_bbox,f,cls=NumpyEncoder)
 
     def shutdown(self):
         if opt.show_3D:
@@ -301,6 +326,7 @@ if __name__ == "__main__":
     parser.add_argument('--no_blur', '-n', action='store_true', help="Don't blur the faces")
     parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
     parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
+    parser.add_argument('--no_display', action='store_true', help="Don't display images")
     opt = parser.parse_args()
     if opt.no_blur:
         logger.info("--no_blur is set")
