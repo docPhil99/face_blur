@@ -17,6 +17,7 @@ import numpy as np
 import gzip
 import utils.viewer as gl
 import pickle
+import itertools
 
 class face_blur:
     def __init__(self):
@@ -85,33 +86,33 @@ class Body_Tracker:
     def process_frame(self,frame_num):
         err = self.camera.retrieve_bodies(self.bodies, self.body_runtime_param)
         self.skeleton_file_data[frame_num] = serializeBodies(self.bodies)
-        if self.bodies.is_new:
-            body_array = self.bodies.body_list
-            print(str(len(body_array)) + " Person(s) detected\n")
-            if len(body_array) > 0:
-                first_body = body_array[0]
-                print("First Person attributes:")
-                print(" Confidence (" + str(int(first_body.confidence)) + "/100)")
-                if self.body_params.enable_tracking:
-                    print(" Tracking ID: " + str(int(first_body.id)) + " tracking state: " + repr(
-                        first_body.tracking_state) + " / " + repr(first_body.action_state))
-                position = first_body.position
-                velocity = first_body.velocity
-                dimensions = first_body.dimensions
-                print(" 3D position: [{0},{1},{2}]\n Velocity: [{3},{4},{5}]\n 3D dimentions: [{6},{7},{8}]".format(
-                    position[0], position[1], position[2], velocity[0], velocity[1], velocity[2], dimensions[0],
-                    dimensions[1], dimensions[2]))
-                if first_body.mask.is_init():
-                    print(" 2D mask available")
-
-                print(" Keypoint 2D ")
-                keypoint_2d = first_body.keypoint_2d
-                for it in keypoint_2d:
-                    print("    " + str(it))
-                print("\n Keypoint 3D ")
-                keypoint = first_body.keypoint
-                for it in keypoint:
-                    print("    " + str(it))
+        # if self.bodies.is_new:
+        #     body_array = self.bodies.body_list
+        #     print(str(len(body_array)) + " Person(s) detected\n")
+        #     if len(body_array) > 0:
+        #         first_body = body_array[0]
+        #         print("First Person attributes:")
+        #         print(" Confidence (" + str(int(first_body.confidence)) + "/100)")
+        #         if self.body_params.enable_tracking:
+        #             print(" Tracking ID: " + str(int(first_body.id)) + " tracking state: " + repr(
+        #                 first_body.tracking_state) + " / " + repr(first_body.action_state))
+        #         position = first_body.position
+        #         velocity = first_body.velocity
+        #         dimensions = first_body.dimensions
+        #         print(" 3D position: [{0},{1},{2}]\n Velocity: [{3},{4},{5}]\n 3D dimentions: [{6},{7},{8}]".format(
+        #             position[0], position[1], position[2], velocity[0], velocity[1], velocity[2], dimensions[0],
+        #             dimensions[1], dimensions[2]))
+        #         if first_body.mask.is_init():
+        #             print(" 2D mask available")
+        #
+        #         print(" Keypoint 2D ")
+        #         keypoint_2d = first_body.keypoint_2d
+        #         for it in keypoint_2d:
+        #             print("    " + str(it))
+        #         print("\n Keypoint 3D ")
+        #         keypoint = first_body.keypoint
+        #         for it in keypoint:
+        #             print("    " + str(it))
 
 
 
@@ -166,7 +167,7 @@ class SVO_Process:
         with open(self.config_save_path ,'w') as f:
             config_dict = serializeConfig(config)
             json.dump(config_dict, f, indent=4, cls=NumpyEncoder)
-        #TODO save this information
+
 
         self.runtime = sl.RuntimeParameters()
         # Prepare single image containers
@@ -259,6 +260,13 @@ class SVO_Process:
         if opt.show_3D:
             self.viewer.exit()
         cv2.destroyAllWindows()
+        self.cam.disable_body_tracking()
+        self.cam.disable_positional_tracking()
+        self.left_image.free()
+        self.right_image.free()
+        self.depth_image.free()
+        self.depth_map.free()
+        self.mat.free()
         self.cam.close()
 
 
@@ -269,17 +277,7 @@ def main(opt):
 
 
 
-
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input','-i', type=Path, help='Path to the SVO file', required=True)
-    parser.add_argument('--output_directory','-o', type=Path, help='Path to the output directory', required=True)
-    parser.add_argument('--no_blur','-n', action='store_true', help="Don't blur the faces")
-    parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
-    parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
-    opt = parser.parse_args()
+def _proc1(opt):
     if not opt.input.suffix==".svo" and not opt.input.suffix==".svo2":
         print("--input_svo_file parameter should be a .svo file but is not : ", opt.input, "Exit program.")
         exit()
@@ -287,10 +285,25 @@ if __name__ == "__main__":
         print("--input_svo_file parameter should be an existing file but is not : ", opt.input,
               "Exit program.")
         exit()
+
     out_dir = opt.input.stem
     opt.output_directory = opt.output_directory / out_dir
     logger.info(f'Creating output directory : {opt.output_directory}')
-    opt.output_directory.mkdir(parents=True, exist_ok=True) # make the output directory
+    opt.output_directory.mkdir(parents=True, exist_ok=True)  # make the output directory
+
+    main(opt)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    #group = parser.add_mutually_exclusive_group(required=True)
+    parser.add_argument('--input', '-i', type=Path, help='Path to the SVO file')
+    parser.add_argument('--output_directory', '-o', type=Path, help='Path to the output directory', required=True)
+    parser.add_argument('--no_blur', '-n', action='store_true', help="Don't blur the faces")
+    parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
+    parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
+    opt = parser.parse_args()
     if opt.no_blur:
         logger.info("--no_blur is set")
-    main(opt)
+
+    logger.info(f"Processing single file {opt.input}")
+    _proc1(opt)
