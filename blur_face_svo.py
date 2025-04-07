@@ -248,16 +248,10 @@ class SVO_Process:
         self._save_image(filename,self.depth_image,blur=False)
 
         if not opt.no_depth:
-            t1 = Thread(target=self._save_depth)
-            t1.start()
             # depth map
-            #self._save_depth()
+            self._save_depth()
             # point cloud
-            t2 = Thread(target=self._save_point_cloud)
-            t2.start()
-            #self._save_point_cloud()
-            t1.join()
-            t2.join()
+            self._save_point_cloud()
 
     def process_loop(self):
         self.run_flag = True
