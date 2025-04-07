@@ -18,7 +18,7 @@ import gzip
 import utils.viewer as gl
 from functools import wraps
 import time
-
+from threading import Thread
 
 def timeit(func):
     @wraps(func)
@@ -235,6 +235,7 @@ class SVO_Process:
     @timeit
     def _save_images(self):
 
+
         #left
         filename = self.left_image_path/Path(f'{self.svo_position:06}.png')
         self._timestamps[f'{self.svo_position:06}.png']=self.cam.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_milliseconds()
@@ -247,10 +248,16 @@ class SVO_Process:
         self._save_image(filename,self.depth_image,blur=False)
 
         if not opt.no_depth:
+            t1 = Thread(target=self._save_depth)
+            t1.start()
             # depth map
-            self._save_depth()
+            #self._save_depth()
             # point cloud
-            self._save_point_cloud()
+            t2 = Thread(target=self._save_point_cloud)
+            t2.start()
+            #self._save_point_cloud()
+            t1.join()
+            t2.join()
 
     def process_loop(self):
         self.run_flag = True
