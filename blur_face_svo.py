@@ -202,6 +202,7 @@ class SVO_Process:
 
         logger.info(f"SVO contains {self.nb_frames}  frames at {self.svo_frame_rate} fps")
 
+    @timeit
     def _save_image(self,filename,image, blur=False):
         logger.debug(f"Saved image :  {filename}")
         img = image.get_data()
@@ -213,6 +214,24 @@ class SVO_Process:
 
         cv2.imwrite(str(filename),img)
 
+
+    @timeit
+    def _save_depth(self):
+        filename = self.depth_image_path / Path(f'{self.svo_position:06}.npy.gz')
+        try:
+            with gzip.GzipFile(filename, "w") as f:
+                np.save(file=f, arr=self.depth_map.get_data())
+        except Exception as e:
+            logger.exception(f'Could not save {filename}')
+
+    @timeit
+    def _save_point_cloud(self):
+        filename = self.depth_image_path / Path(f'{self.svo_position:06}.ply')
+        tmp = sl.Mat()
+        self.cam.retrieve_measure(tmp, sl.MEASURE.XYZRGBA)
+        saved = (tmp.write(str(filename)) == sl.ERROR_CODE.SUCCESS)
+        if not saved:
+            logger.error(f"Failed to write {filename}. Please check that you have permissions to write on disk")
     @timeit
     def _save_images(self):
 
@@ -229,19 +248,10 @@ class SVO_Process:
 
         if not opt.no_depth:
             # depth map
-            filename = self.depth_image_path / Path(f'{self.svo_position:06}.npy.gz')
-            try:
-                with gzip.GzipFile(filename,"w") as f:
-                    np.save(file=f, arr=self.depth_map.get_data())
-            except Exception as e:
-                logger.exception(f'Could not save {filename}')
+            self._save_depth()
             # point cloud
-            filename = self.depth_image_path / Path(f'{self.svo_position:06}.ply')
-            tmp = sl.Mat()
-            self.cam.retrieve_measure(tmp, sl.MEASURE.XYZRGBA)
-            saved = (tmp.write(str(filename)) == sl.ERROR_CODE.SUCCESS)
-            if not saved:
-                logger.error(f"Failed to write {filename}. Please check that you have permissions to write on disk")
+            self._save_point_cloud()
+
     def process_loop(self):
         self.run_flag = True
         while self.run_flag:
