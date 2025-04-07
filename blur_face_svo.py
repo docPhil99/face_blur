@@ -226,7 +226,7 @@ class SVO_Process:
 
     @timeit
     def _save_point_cloud(self):
-        filename = self.depth_image_path / Path(f'{self.svo_position:06}.ply')
+        filename = self.depth_image_path / Path(f'{self.svo_position:06}.{self.opt.point_cloud_extension}')
         tmp = sl.Mat()
         self.cam.retrieve_measure(tmp, sl.MEASURE.XYZRGBA)
         saved = (tmp.write(str(filename)) == sl.ERROR_CODE.SUCCESS)
@@ -333,12 +333,13 @@ def _proc1(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     #group = parser.add_mutually_exclusive_group(required=True)
-    parser.add_argument('--input', '-i', type=Path, help='Path to the SVO file')
+    parser.add_argument('--input', '-i', type=Path, help='Path to the SVO file',required=True)
     parser.add_argument('--output_directory', '-o', type=Path, help='Path to the output directory', required=True)
     parser.add_argument('--no_blur', '-n', action='store_true', help="Don't blur the faces")
     parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
     parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
     parser.add_argument('--no_display', action='store_true', help="Don't display images")
+    parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
     opt = parser.parse_args()
     if opt.no_blur:
         logger.info("--no_blur is set")
