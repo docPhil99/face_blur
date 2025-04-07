@@ -250,6 +250,7 @@ class SVO_Process:
         if not opt.no_depth:
             # depth map
             self._save_depth()
+        if not opt.no_point_cloud:
             # point cloud
             self._save_point_cloud()
 
@@ -340,6 +341,7 @@ if __name__ == "__main__":
     parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
     parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
     parser.add_argument('--no_display', action='store_true', help="Don't display images")
+    parser.add_argument('--no_point_cloud', action='store_true', help="Don't save point cloud")
     parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
     opt = parser.parse_args()
     if opt.no_blur:

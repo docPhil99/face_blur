@@ -15,6 +15,8 @@ parser.add_argument('--no_blur', '-n', action='store_true', help="Don't blur the
 parser.add_argument('--no_depth', action='store_true', help="Don't store depth")
 parser.add_argument('--show_3D', action='store_true', help="Display 3D bodies")
 parser.add_argument('--no_display', action='store_true', help="Don't display images")
+parser.add_argument('--no_point_cloud', action='store_true', help="Don't save point cloud")
+parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
 opt = parser.parse_args()
 
 patterns = ["*.svo", "*.svo2"]
@@ -29,5 +31,8 @@ for input_file in itertools.chain.from_iterable(opt.input_directory.glob(pattern
         command_string += f" --show_3D"
     if opt.no_display:
         command_string += f" --no_display"
+    if opt.no_point_cloud:
+        command_string += f" --no_point_cloud"
+    command_string += f" --point_cloud_extension {opt.point_cloud_extension}"
     logger.info(command_string)
     os.system(command_string)
