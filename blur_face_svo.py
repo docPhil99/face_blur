@@ -212,6 +212,8 @@ class SVO_Process:
             self.face_bbox[filename.stem]=bbox
 
         cv2.imwrite(str(filename),img)
+
+    @timeit
     def _save_images(self):
 
         #left
