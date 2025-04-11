@@ -15,6 +15,7 @@ services:
             - ~/.Xauthority:/root/.Xauthority
             - /home/phil/python/IntentMAPS/ZED/resources:/usr/local/zed/resources
             - /home/phil/python/IntentMAPS:/root/Documents/ZED
+            - /home/phil/FourTB/IntentMAPS:/root/Documents/processed
         privileged: true
         network_mode: host   #'needed for debug
         #command: /bin/bash
