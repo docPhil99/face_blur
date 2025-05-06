@@ -1,33 +1,11 @@
 import cv2
 import numpy as np
 import json
-import argparse
-from loguru import logger
 from pathlib import Path
-import gzip
-import utils.viewer as gl
+from loguru import logger
 
-input_dir =Path('/root/Documents/ZED/ZED/ZED_Proc2/2025-03-26%2014.44.03%20recording%2034978846')
-#
-# #left camera
-# path= input_dir/Path('left')
-# for img_name in sorted(path.glob('*.png')):
-#     logger.debug(f'Processing {img_name}')
-#     img = cv2.imread(str(img_name))
-#     cv2.imshow('left',img)
-#     if cv2.waitKey(20) == ord('q'):
-#         break
-#
-#
-# # depth image
-# path= input_dir/Path('depth')
-# for img_name in sorted(path.glob('*.png')):
-#     img = cv2.imread(str(img_name))
-#     cv2.imshow('depth',img)
-#     if cv2.waitKey(20) == ord('q'):
-#         break
-#
-#
+input_dir =Path('/home/d_phil/intentMAPS/ZED/ZED_Processed/BLACKB4P14S')
+
 # # depth map
 # path= input_dir/Path('depth')
 # for img_name in sorted(path.glob('*.npy.gz')):
@@ -43,19 +21,30 @@ input_dir =Path('/root/Documents/ZED/ZED/ZED_Proc2/2025-03-26%2014.44.03%20recor
 #         break
 
 body_path= input_dir/Path('bodies.json')
-with open(body_path) as f:
-    bodies = json.load(f)
-
+try:
+    with open(body_path) as f:
+        bodies = json.load(f)
+except:
+    logger.exception(f'Failed to open {body_path}')
+    exit(-1)
 for frame_number in bodies.keys():
     print(frame_number)
     path = input_dir / Path('left')/Path(f'{int(frame_number):06}.png')
-    img = cv2.imread(str(path))
+    limg = cv2.imread(str(path))
     bods  = bodies[frame_number]["body_list"]
     for body in bods:
         kps = body["keypoint_2d"]
         for kp in kps:
-            cv2.circle(img,(int(kp[0]),int(kp[1])),2,(255,0,0),2)
+            cv2.circle(limg,(int(kp[0]),int(kp[1])),2,(255,0,0),2)
+    path = input_dir / Path('right') / Path(f'{int(frame_number):06}.png')
+    rimg = cv2.imread(str(path))
 
+    path = input_dir / Path('depth') / Path(f'{int(frame_number):06}.png')
+    dimg = cv2.imread(str(path))
+    # concatenate image Horizontally
+    sz = limg.shape
+    img = np.concatenate((limg, rimg, dimg), axis=1)
+    img = cv2.resize(img, (sz[1],sz[0]//3))
     cv2.imshow('body',img)
     if cv2.waitKey(20) == ord('q'):
         break
