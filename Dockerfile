@@ -9,3 +9,7 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 WORKDIR "/usr/local/zed"
 RUN python3 get_python_api.py
 RUN apt-get install -y usbutils neovim
+
+RUN useradd -u 1000 -g 1000 -m d_phil
+#USER d_phil
+#USER root

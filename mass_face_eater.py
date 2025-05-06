@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 import argparse
 import itertools
@@ -35,12 +36,26 @@ parser.add_argument('--no_point_cloud', action='store_true', help="Don't save po
 parser.add_argument('--point_cloud_extension','-p',type=str,default='ply',help="Extension of point cloud files")
 parser.add_argument('--dry_run', action='store_true', help="Dry run")
 parser.add_argument("--compress_point_cloud", action='store_true', help="compress the point cloud file")
+parser.add_argument('--skip_list', type=Path, help='Optional file containing files to skip, same format as logs/proc_list.txt')
 opt = parser.parse_args()
+skip_file_list = []
+if opt.skip_list:
+    try:
+        with open(opt.skip_list,'rt') as f:
+            dat = f.read()
+            skip_file_list = dat.split("\n")
+            logger.info('Using skip list')
+    except FileNotFoundError:
+        logger.error(f"File not found: {opt.skip_list} ")
+        sys.exit(-1)
 
 with open("logs/proc_list.txt",'wt') as f:
     logger.info(f'Processing {opt.input_directory}')
     patterns = ["**/*.svo", "**/*.svo2"]
     for input_file in itertools.chain.from_iterable(opt.input_directory.glob(pattern) for pattern in patterns):
+        if str(input_file) in skip_file_list:
+            logger.info(f'Skipping file: {input_file}')
+            continue
         logger.info(f"Batch processing{input_file}")
         command_string = f'python blur_face_svo.py -i "{input_file}" -o "{opt.output_directory}"'
         if opt.no_blur:
