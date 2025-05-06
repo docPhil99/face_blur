@@ -1,0 +1,28 @@
+services:
+    zed:
+        image: phil:zed20
+        build:
+            context: .
+        environment:
+            DISPLAY: $DISPLAY
+            DEEPFACE_HOME: "/home/d_phil/intentMAPS/ZED/home"   #where to store model weights.
+        stdin_open: true # docker run -i
+        tty: true        # docker run -t
+        #user: 1000:1000
+
+        volumes:
+            - /tmp/.X11-unix:/tmp/.X11-unix
+            - ~/.Xauthority:/root/.Xauthority
+            - /home/phil/python/IntentMAPS/ZED/resources:/usr/local/zed/resources
+            - /home/phil/python/IntentMAPS:/home/d_phil/intentMAPS
+            #- /home/phil/FourTB/IntentMAPS:/root/Documents/processed
+        privileged: true
+        network_mode: host   #'needed for debug
+        #command: /bin/bash
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: 1
+                          capabilities: [ gpu ]

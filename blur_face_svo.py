@@ -18,6 +18,7 @@ import gzip
 import utils.viewer as gl
 from functools import wraps
 import time
+import datetime
 from threading import Thread
 
 def timeit(func):
@@ -344,6 +345,9 @@ if __name__ == "__main__":
     parser.add_argument('--no_point_cloud', action='store_true', help="Don't save point cloud")
     parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
     opt = parser.parse_args()
+    logger_file = Path('logs') / Path(f'{opt.input.name}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log')
+    logger_file.parent.mkdir(parents=True, exist_ok=True)
+    logger.add(logger_file, level="INFO")
     if opt.no_blur:
         logger.info("--no_blur is set")
 
