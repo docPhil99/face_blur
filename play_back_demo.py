@@ -1,10 +1,15 @@
+"""
+Demonstrates how to play back the images
+"""
+
+
 import cv2
 import numpy as np
 import json
 from pathlib import Path
 from loguru import logger
 
-input_dir =Path('/home/d_phil/intentMAPS/ZED/ZED_Processed/BLACKB4P14S')
+input_dir =Path('/home/d_phil/intentMAPS/ZED/ZED_Proc_new_test/2025-03-26 14.46.59 recording 39493447/')
 
 # # depth map
 # path= input_dir/Path('depth')
@@ -20,6 +25,14 @@ input_dir =Path('/home/d_phil/intentMAPS/ZED/ZED_Processed/BLACKB4P14S')
 #     if cv2.waitKey(20) == ord('q'):
 #         break
 
+config_path = input_dir/Path('config.json')
+try:
+    with open(config_path) as f:
+        config = json.load(f)
+except:
+    logger.exception(f'Failed to open {config_path}')
+    exit(-1)
+
 body_path= input_dir/Path('bodies.json')
 try:
     with open(body_path) as f:
@@ -27,6 +40,12 @@ try:
 except:
     logger.exception(f'Failed to open {body_path}')
     exit(-1)
+fourcc = cv2.VideoWriter_fourcc(*"XVID")
+vid_size = config['resolution']
+outvideo_size=(vid_size[0],vid_size[1]//3)
+vid_out = input_dir/Path(f'{input_dir.stem}_demo.mp4')
+logger.info(f'output video path: {vid_out}')
+vid = cv2.VideoWriter(str(vid_out),fourcc, float(config['fps']),outvideo_size  )
 for frame_number in bodies.keys():
     print(frame_number)
     path = input_dir / Path('left')/Path(f'{int(frame_number):06}.png')
@@ -45,10 +64,12 @@ for frame_number in bodies.keys():
     sz = limg.shape
     img = np.concatenate((limg, rimg, dimg), axis=1)
     img = cv2.resize(img, (sz[1],sz[0]//3))
+    vid.write(img)
     cv2.imshow('body',img)
     if cv2.waitKey(20) == ord('q'):
         break
 
+vid.release()
 ## 3D  - not working
 # import pyzed.sl as sl
 # import types

@@ -6,3 +6,4 @@ loguru
 requests
 tensorflow
 retina-face
+filterpy==1.4.5

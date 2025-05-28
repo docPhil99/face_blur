@@ -64,14 +64,14 @@ def serializeConfig(config):
     out["fps"] = config.camera_configuration.fps
     out["resolution"] = [config.camera_configuration.resolution.width, config.camera_configuration.resolution.height]
     out["left_cam"] = _cam_pam(config.camera_configuration.calibration_parameters.left_cam)
-    out["right_cam"] = _cam_pam(config.camera_configuration.calibration_parameters.left_cam)
+    out["right_cam"] = _cam_pam(config.camera_configuration.calibration_parameters.right_cam)
     trans ={}
     trans["m"] = config.camera_configuration.calibration_parameters.stereo_transform.m
     trans["matrix_name"] = config.camera_configuration.calibration_parameters.stereo_transform.matrix_name
     out["stereo_transform"] = trans
 
     out["left_cam_raw"] = _cam_pam(config.camera_configuration.calibration_parameters_raw.left_cam)
-    out["right_cam_raw"] = _cam_pam(config.camera_configuration.calibration_parameters_raw.left_cam)
+    out["right_cam_raw"] = _cam_pam(config.camera_configuration.calibration_parameters_raw.right_cam)
     trans = {}
     trans["m"] = config.camera_configuration.calibration_parameters_raw.stereo_transform.m
     trans["matrix_name"] = config.camera_configuration.calibration_parameters_raw.stereo_transform.matrix_name

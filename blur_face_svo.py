@@ -185,6 +185,7 @@ class SVO_Process:
 
 
         with open(self.config_save_path ,'w') as f:
+            logger.info(f'Saving {self.config_save_path}')
             config_dict = serializeConfig(config)
             json.dump(config_dict, f, indent=4, cls=NumpyEncoder)
 
@@ -199,19 +200,23 @@ class SVO_Process:
         self.svo_frame_rate = self.cam.get_init_parameters().camera_fps
         self.nb_frames = self.cam.get_svo_number_of_frames()
         self._timestamps ={}
-        self.face_bbox={}
+        self.right_face_bbox={}
+        self.left_face_bbox={}
 
         logger.info(f"SVO contains {self.nb_frames}  frames at {self.svo_frame_rate} fps")
 
     @timeit
-    def _save_image(self,filename,image, blur=False):
+    def _save_image(self,filename,image, blur=False,cam='right' ):
         logger.debug(f"Saved image :  {filename}")
         img = image.get_data()
         #drop alpha
         img = img[:,:,0:3]
         if blur:
             img,bbox = face_blur.blur(img)
-            self.face_bbox[filename.stem]=bbox
+            if cam=='left':
+                self.left_face_bbox[filename.stem] = bbox
+            else:
+                self.right_face_bbox[filename.stem]=bbox
 
         cv2.imwrite(str(filename),img)
 
@@ -240,10 +245,13 @@ class SVO_Process:
         #left
         filename = self.left_image_path/Path(f'{self.svo_position:06}.png')
         self._timestamps[f'{self.svo_position:06}.png']=self.cam.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_milliseconds()
-        self._save_image(filename,self.left_image,blur=not self.opt.no_blur)
+        self._save_image(filename,self.left_image,blur=not self.opt.no_blur, cam='left')
+
+        if self.opt.left_only:
+            return
 
         filename = self.right_image_path / Path(f'{self.svo_position:06}.png')
-        self._save_image(filename,self.right_image,blur=not self.opt.no_blur)
+        self._save_image(filename,self.right_image,blur=not self.opt.no_blur, cam='right')
         # depth
         filename = self.depth_image_path / Path(f'{self.svo_position:06}.png')
         self._save_image(filename,self.depth_image,blur=False)
@@ -263,11 +271,14 @@ class SVO_Process:
             if err == sl.ERROR_CODE.SUCCESS:
                 self.svo_position = self.cam.get_svo_position()
                 self.cam.retrieve_image(self.left_image, sl.VIEW.LEFT)
-                self.cam.retrieve_image(self.right_image, sl.VIEW.RIGHT)
-                self.cam.retrieve_image(self.depth_image, sl.VIEW.DEPTH)
-                self.cam.retrieve_measure(self.depth_map, sl.MEASURE.DEPTH)
+                if not self.opt.left_only:
+                    self.cam.retrieve_image(self.right_image, sl.VIEW.RIGHT)
+                    self.cam.retrieve_image(self.depth_image, sl.VIEW.DEPTH)
+                    self.cam.retrieve_measure(self.depth_map, sl.MEASURE.DEPTH)
+                    self.body_tracker.process_frame(self.svo_position)
+
                 self._save_images()
-                self.body_tracker.process_frame(self.svo_position)
+
                 cv_img = self.left_image.get_data()
                 if self.opt.show_3D:
                     self.viewer.update_bodies(self.body_tracker.bodies)
@@ -290,11 +301,16 @@ class SVO_Process:
             end_time = time.perf_counter()
             total_time = end_time - start_time
             logger.debug(f"Frame time: {total_time} seconds")
-        self.body_tracker.save_data(opt.output_directory)
+        if not self.opt.left_only:
+            self.body_tracker.save_data(opt.output_directory)
         with open(self.opt.output_directory/Path('timestamps.json'),'wt') as f:
             json.dump(self._timestamps,f)
-        with open(self.opt.output_directory/Path('faces.json'),'wt') as f:
-            json.dump(self.face_bbox,f,cls=NumpyEncoder)
+        if not opt.no_blur:
+            with open(self.opt.output_directory/Path('left_faces.json'),'wt') as f:
+                json.dump(self.left_face_bbox,f,cls=NumpyEncoder)
+            if not opt.left_only:
+                with open(self.opt.output_directory / Path('right_faces.json'), 'wt') as f:
+                    json.dump(self.right_face_bbox, f, cls=NumpyEncoder)
 
     def shutdown(self):
         if opt.show_3D:
@@ -312,11 +328,12 @@ class SVO_Process:
 
 def main(opt):
     proc  = SVO_Process(opt)
-    proc.process_loop()
+    if not opt.calib_only:
+        proc.process_loop()
     proc.shutdown()
 
 
-
+@timeit
 def _proc1(opt):
     if not opt.input.suffix==".svo" and not opt.input.suffix==".svo2":
         print("--input_svo_file parameter should be a .svo file but is not : ", opt.input, "Exit program.")
@@ -344,12 +361,19 @@ if __name__ == "__main__":
     parser.add_argument('--no_display', action='store_true', help="Don't display images")
     parser.add_argument('--no_point_cloud', action='store_true', help="Don't save point cloud")
     parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
+    parser.add_argument('--left_only', action='store_true', help="only process the left image, no depth, no point cloud, no tracking")
+    parser.add_argument('--calib_only', action='store_true', help="only extract calib.json")
     opt = parser.parse_args()
     logger_file = Path('logs') / Path(f'{opt.input.name}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log')
     logger_file.parent.mkdir(parents=True, exist_ok=True)
     logger.add(logger_file, level="INFO")
     if opt.no_blur:
         logger.info("--no_blur is set")
+    if opt.left_only:
+        opt.no_depth = True
+        opt.no_point_cloud = True
+        opt.show_3D = False
 
     logger.info(f"Processing single file {opt.input}")
+
     _proc1(opt)
