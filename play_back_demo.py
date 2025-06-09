@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from loguru import logger
 
-input_dir =Path('/home/d_phil/intentMAPS/ZED/ZED_Proc_new_test/2025-03-26 14.46.59 recording 39493447/')
+input_dir =Path('/home/d_phil/intentMAPS/test_set/me/28_05_2025__09_36_44/me1/')
 
 # # depth map
 # path= input_dir/Path('depth')

@@ -65,7 +65,7 @@ with open("logs/proc_list.txt",'wt') as f:
             logger.info(f'Skipping file: {input_file}')
             continue
         logger.info(f"Batch processing{input_file}")
-        command_string = f'python blur_face_svo.py -i "{input_file}" -o "{opt.output_directory}"'
+        command_string = f'python blur_face_svo.py -i {input_file} -o {opt.output_directory}'
         if opt.no_blur:
             command_string += f" --no_blur"
         if opt.no_depth:
@@ -77,9 +77,14 @@ with open("logs/proc_list.txt",'wt') as f:
         if opt.no_point_cloud:
             command_string += f" --no_point_cloud"
         command_string += f" --point_cloud_extension {opt.point_cloud_extension}"
-        logger.info(command_string)
+        c_list = command_string.split()
+        logger.info(c_list)
         if not opt.dry_run:
-            os.system(command_string)
+            #os.system(command_string)
+            proc=subprocess.run(command_string.split())
+            if proc.returncode == 1:
+                logger.info(f"directory exists, skipping: {input_file}")
         if opt.compress_point_cloud:
             compress_point_cloud(input_file, opt.output_directory,opt.point_cloud_extension)
-        print(input_file,file=f,flush=True)
+        if not opt.dry_run:
+            print(input_file,file=f,flush=True)

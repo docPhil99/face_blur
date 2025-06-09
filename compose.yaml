@@ -16,8 +16,9 @@ services:
             - ~/.Xauthority:/root/.Xauthority
             - /home/phil/python/IntentMAPS/ZED/resources:/usr/local/zed/resources
             - /home/phil/python/IntentMAPS:/home/d_phil/intentMAPS
+            #- /mnt/intentMAPS/intentMAPS/anon_run2:/home/d_phil/intentMAPS/processed
             - /mnt/intentMAPS/intentMAPS/anon_run1:/home/d_phil/intentMAPS/processed
-            - /mnt/intentMAPS/intentMAPS/test_set:/home/d_phil/intentMAPS/test_set
+            #- /mnt/intentMAPS/intentMAPS/test_set:/home/d_phil/intentMAPS/test_set
             #- /home/phil/FourTB/IntentMAPS:/root/Documents/processed
         privileged: true
         network_mode: host   #'needed for debug

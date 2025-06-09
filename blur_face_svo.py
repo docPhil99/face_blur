@@ -5,7 +5,7 @@
 """
 import json
 
-from retinaface import RetinaFace
+
 import sys
 import pyzed.sl as sl
 import cv2
@@ -16,123 +16,13 @@ from pathlib import Path
 import numpy as np
 import gzip
 import utils.viewer as gl
-from functools import wraps
+from utils.timeit import timeit
 import time
 import datetime
-from threading import Thread
-
-def timeit(func):
-    @wraps(func)
-    def timeit_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        # first item in the args, ie `args[0]` is `self`
-        print(f'Function {func.__name__} Took {total_time:.4f} seconds')
-        return result
-    return timeit_wrapper
+from utils.processing import Body_Tracker, face_blur
+from utils.serialiser import serializeConfig, NumpyEncoder
 
 
-
-class face_blur:
-    def __init__(self):
-        pass
-
-
-    @staticmethod
-    @timeit
-    def blur(image):
-        resp = RetinaFace.detect_faces(image)
-        bboxes =[]
-        for key, face in resp.items():
-            bbox = face['facial_area']
-            bboxes.append(bbox)
-            image = face_blur._blur_face(image, bbox)
-        return image, bboxes
-
-    @staticmethod
-    def _blur_face(image, bbox):
-        face = image[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
-        face_blur = cv2.blur(face, (200, 200))
-        image[bbox[1]:bbox[3], bbox[0]:bbox[2], :] = face_blur
-        return image
-from utils.save_bodies import serializeBodies, NumpyEncoder,serializeConfig
-
-class Body_Tracker:
-    def __init__(self, camera, conf_threshold=40):
-        self.skeleton_file_data = {}  # storage dict
-        self.camera = camera
-        self.body_params = body_params = sl.BodyTrackingParameters()
-        # Different model can be chosen, optimizing the runtime or the accuracy
-        self.body_params.detection_model = sl.BODY_TRACKING_MODEL.HUMAN_BODY_ACCURATE
-        self.body_params.enable_tracking = True
-        self.body_params.enable_segmentation = False
-        # Optimize the person joints position, requires more computations
-        self.body_params.enable_body_fitting = True
-        self.body_params.body_format = sl.BODY_FORMAT.BODY_34
-        # Object tracking requires the positional tracking module
-
-
-        if self.body_params.enable_tracking:
-            self.positional_tracking_param = sl.PositionalTrackingParameters()
-            # positional_tracking_param.set_as_static = True
-            self.positional_tracking_param.set_floor_as_origin = True
-            self.camera.enable_positional_tracking(self.positional_tracking_param)
-
-        err = self.camera.enable_body_tracking(body_params)
-        if err != sl.ERROR_CODE.SUCCESS:
-            logger.error(f"Enable Body Tracking : {repr(err)}. Exit program.")
-            self.camera.close()
-            exit()
-        self.bodies = sl.Bodies()
-        self.body_runtime_param = sl.BodyTrackingRuntimeParameters()
-        # For outdoor scene or long range, the confidence should be lowered to avoid missing detections (~20-30)
-        # For indoor scene or closer range, a higher confidence limits the risk of false positives and increase the precision (~50+)
-        self.body_runtime_param.detection_confidence_threshold = conf_threshold
-
-    def save_data(self,dir_name:Path):
-        filename = dir_name / Path('bodies.json')
-        with open(filename, 'w') as f:
-            json.dump(self.skeleton_file_data,f,indent=4,cls=NumpyEncoder)
-
-    def draw2D(self,image):
-        for body in self.bodies.body_list:
-            kp = body.keypoint_2d
-            for point in kp:
-                cv2.circle(image,(int(point[0]),int(point[1])), 3,(255,0,0),-1)
-
-        #kp = self.bodies
-    def process_frame(self,frame_num):
-        err = self.camera.retrieve_bodies(self.bodies, self.body_runtime_param)
-        self.skeleton_file_data[frame_num] = serializeBodies(self.bodies)
-        # if self.bodies.is_new:
-        #     body_array = self.bodies.body_list
-        #     print(str(len(body_array)) + " Person(s) detected\n")
-        #     if len(body_array) > 0:
-        #         first_body = body_array[0]
-        #         print("First Person attributes:")
-        #         print(" Confidence (" + str(int(first_body.confidence)) + "/100)")
-        #         if self.body_params.enable_tracking:
-        #             print(" Tracking ID: " + str(int(first_body.id)) + " tracking state: " + repr(
-        #                 first_body.tracking_state) + " / " + repr(first_body.action_state))
-        #         position = first_body.position
-        #         velocity = first_body.velocity
-        #         dimensions = first_body.dimensions
-        #         print(" 3D position: [{0},{1},{2}]\n Velocity: [{3},{4},{5}]\n 3D dimentions: [{6},{7},{8}]".format(
-        #             position[0], position[1], position[2], velocity[0], velocity[1], velocity[2], dimensions[0],
-        #             dimensions[1], dimensions[2]))
-        #         if first_body.mask.is_init():
-        #             print(" 2D mask available")
-        #
-        #         print(" Keypoint 2D ")
-        #         keypoint_2d = first_body.keypoint_2d
-        #         for it in keypoint_2d:
-        #             print("    " + str(it))
-        #         print("\n Keypoint 3D ")
-        #         keypoint = first_body.keypoint
-        #         for it in keypoint:
-        #             print("    " + str(it))
 
 
 
@@ -143,13 +33,10 @@ class SVO_Process:
         self.cam = None
         self.svo_image =None
         self.runtime = None
-        self.left_image_path = self.opt.output_directory/Path('left')
-        self.right_image_path = self.opt.output_directory/Path('right')
-        self.depth_image_path = self.opt.output_directory/Path('depth')
-        self.config_save_path = self.opt.output_directory/Path('config.json')
-        self.left_image_path.mkdir(parents=True, exist_ok=True)
-        self.right_image_path.mkdir(parents=True, exist_ok=True)
-        self.depth_image_path.mkdir(parents=True, exist_ok=True)
+        self.left_image_path = None
+        self.right_image_path = None
+        self.depth_image_path = None
+        self.config_save_path = None
 
         self._open_file()
         self.body_tracker = Body_Tracker(self.cam)
@@ -157,6 +44,33 @@ class SVO_Process:
             self.viewer= gl.GLViewer()
             self.viewer.init()
 
+    def _set_output_paths(self):
+        timestamp = self._timestamps[f'{0:06}.png']
+        date_dir = Path(datetime.datetime.fromtimestamp(timestamp/1000).strftime('%d_%m_%Y'))
+        out_dir = opt.input.stem
+        opt.output_directory = opt.output_directory /date_dir / out_dir
+        logger.info(f'Creating output directory : {opt.output_directory}')
+        try:
+            opt.output_directory.mkdir(parents=True, exist_ok=self.opt.overwrite)  # make the output directory
+        except FileExistsError:
+            logger.error(f'Output directory {opt.output_directory} already exists. Use --overwrite option to overwrite. Exiting.')
+            self.shutdown()
+            sys.exit(1)
+
+        self.left_image_path = self.opt.output_directory / Path('left')
+        self.right_image_path = self.opt.output_directory  / Path('right')
+        self.depth_image_path = self.opt.output_directory  / Path('depth')
+        self.config_save_path = self.opt.output_directory / Path('config.json')
+        self.left_image_path.mkdir(parents=True, exist_ok=True)
+        self.right_image_path.mkdir(parents=True, exist_ok=True)
+        self.depth_image_path.mkdir(parents=True, exist_ok=True)
+
+    def _save_config_file(self):
+        with open(self.config_save_path, 'w') as f:
+            logger.info(f'Saving {self.config_save_path}')
+            config = self.cam.get_camera_information()
+            config_dict = serializeConfig(config)
+            json.dump(config_dict, f, indent=4, cls=NumpyEncoder)
     @staticmethod
     def progress_bar(percent_done, bar_length=50):
         # Display progress bar
@@ -180,14 +94,11 @@ class SVO_Process:
             raise Exception(f"Camera File Not Open: {status}")
 
         # Set a maximum resolution, for visualisation confort
-        resolution = self.cam.get_camera_information().camera_configuration.resolution
-        config = self.cam.get_camera_information()
+        #resolution = self.cam.get_camera_information().camera_configuration.resolution
 
 
-        with open(self.config_save_path ,'w') as f:
-            logger.info(f'Saving {self.config_save_path}')
-            config_dict = serializeConfig(config)
-            json.dump(config_dict, f, indent=4, cls=NumpyEncoder)
+
+
 
 
         self.runtime = sl.RuntimeParameters()
@@ -207,7 +118,7 @@ class SVO_Process:
 
     @timeit
     def _save_image(self,filename,image, blur=False,cam='right' ):
-        logger.debug(f"Saved image :  {filename}")
+        #logger.debug(f"Saved image :  {filename}")
         img = image.get_data()
         #drop alpha
         img = img[:,:,0:3]
@@ -243,8 +154,12 @@ class SVO_Process:
 
 
         #left
-        filename = self.left_image_path/Path(f'{self.svo_position:06}.png')
         self._timestamps[f'{self.svo_position:06}.png']=self.cam.get_timestamp(sl.TIME_REFERENCE.IMAGE).get_milliseconds()
+        if self.svo_position==0:  #first frame
+            self._set_output_paths()
+            self._save_config_file()
+
+        filename = self.left_image_path / Path(f'{self.svo_position:06}.png')
         self._save_image(filename,self.left_image,blur=not self.opt.no_blur, cam='left')
 
         if self.opt.left_only:
@@ -253,8 +168,8 @@ class SVO_Process:
         filename = self.right_image_path / Path(f'{self.svo_position:06}.png')
         self._save_image(filename,self.right_image,blur=not self.opt.no_blur, cam='right')
         # depth
-        filename = self.depth_image_path / Path(f'{self.svo_position:06}.png')
-        self._save_image(filename,self.depth_image,blur=False)
+        #filename = self.depth_image_path / Path(f'{self.svo_position:06}.png')
+        #self._save_image(filename,self.depth_image,blur=False)
 
         if not opt.no_depth:
             # depth map
@@ -300,7 +215,7 @@ class SVO_Process:
                 self.run_flag = False
             end_time = time.perf_counter()
             total_time = end_time - start_time
-            logger.debug(f"Frame time: {total_time} seconds")
+            logger.debug(f"Frame time: {total_time} seconds for frame {self.svo_position}")
         if not self.opt.left_only:
             self.body_tracker.save_data(opt.output_directory)
         with open(self.opt.output_directory/Path('timestamps.json'),'wt') as f:
@@ -343,10 +258,6 @@ def _proc1(opt):
               "Exit program.")
         exit()
 
-    out_dir = opt.input.stem
-    opt.output_directory = opt.output_directory / out_dir
-    logger.info(f'Creating output directory : {opt.output_directory}')
-    opt.output_directory.mkdir(parents=True, exist_ok=True)  # make the output directory
 
     main(opt)
 
@@ -363,17 +274,18 @@ if __name__ == "__main__":
     parser.add_argument('--point_cloud_extension','-p',type=str,default='.ply',help="Extension of point cloud files")
     parser.add_argument('--left_only', action='store_true', help="only process the left image, no depth, no point cloud, no tracking")
     parser.add_argument('--calib_only', action='store_true', help="only extract calib.json")
+    parser.add_argument('--overwrite', action='store_true', help="overwrite existing files")
     opt = parser.parse_args()
     logger_file = Path('logs') / Path(f'{opt.input.name}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log')
     logger_file.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(logger_file, level="INFO")
+    logger.add(logger_file, level="DEBUG")
     if opt.no_blur:
         logger.info("--no_blur is set")
     if opt.left_only:
         opt.no_depth = True
         opt.no_point_cloud = True
         opt.show_3D = False
-
+    logger.info(opt)
     logger.info(f"Processing single file {opt.input}")
 
     _proc1(opt)

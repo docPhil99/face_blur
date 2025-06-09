@@ -40,7 +40,7 @@ def draw_trackers(img, dets, trackers):
 
 
 
-def process(input_dir,save_path=None,left_only=False):
+def process(input_dir,save_path=None,left_only=False,no_display=False):
     config_path = input_dir/Path('config.json')
     try:
         with open(config_path) as f:
@@ -137,10 +137,10 @@ def process(input_dir,save_path=None,left_only=False):
         r_dets, r_trackers = r_face_tracker.update(np.array(right_face_list))
 
 
-        if left_faces:
+        #if left_faces:
             #for bbox in left_face_list:
             #    limg = cv2.rectangle(limg, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 3)
-            limg = draw_trackers(limg,l_dets, l_trackers)
+        #    limg = draw_trackers(limg,l_dets, l_trackers)
 
         #for bbox in right_face_list:
             #rimg = cv2.rectangle(rimg, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 255, 0), 3)
@@ -150,17 +150,22 @@ def process(input_dir,save_path=None,left_only=False):
             sz = limg.shape
             img = np.concatenate((limg, rimg), axis=1)
             #img = cv2.resize(img, (sz[1],sz[0]//2))
-            cv2.imshow('body',img)
+            if not no_display:
+                cv2.imshow('body',img)
         else:
-            cv2.imshow('body',limg)
+            if not no_display:
+                cv2.imshow('body',limg)
         if save_path:
-            key = cv2.waitKey(10)
+
             vid_writer.write(limg)
             frame_number += 1
-            if key == ord('q'):
-                break
             if frame_number == max_frame_number:
                 break
+            if not no_display:
+                key = cv2.waitKey(10)
+                if key == ord('q'):
+                    break
+
         else:
             key = cv2.waitKey(0)
             if key == ord('q'):
@@ -179,6 +184,7 @@ def process(input_dir,save_path=None,left_only=False):
 if __name__ == '__main__':
     args=argparse.ArgumentParser()
     args.add_argument('--input',type=Path,help='Path to the video directory',required=True)
+    args.add_argument('--no_display',action='store_true')
     args.add_argument('--save',action='store_true',help='Save video')
     args.add_argument('--save_path',type=Path,help='Path to the saved video directory, if not set, it uses the input directory')
     opt = args.parse_args()
@@ -193,4 +199,4 @@ if __name__ == '__main__':
         logger.info(f'Output path: {save_path}')
     else:
         save_path = None
-    process(input_dir,save_path=save_path, left_only=True)
+    process(input_dir,save_path=save_path, left_only=True, no_display=opt.no_display)
