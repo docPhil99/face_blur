@@ -1,4 +1,3 @@
-import json
 
 import pyzed.sl as sl
 import argparse

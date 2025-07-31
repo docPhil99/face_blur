@@ -45,7 +45,7 @@ class ReprojectPoints:
         except Exception as e:
             logger.exception(f'Failed to open {config_path}')
             raise e
-
+        self.st =np.array(self.config['stereo_transform']['m'])
         self.ZED_config = GetConfig(self.config['serial_number'], config_path=Path('/home/d_phil/intentMAPS/ZED/faceBlur/config'))
         body_path= input_dir/Path('bodies.json')
         try:
@@ -95,10 +95,14 @@ class ReprojectPoints:
         bods = self.bodies[str(self.frame_number)]["body_list"]
         for body in bods:
             kps_3d = body["keypoint"]  # all keypoints
+
             for kp in kps_3d:
+                if "right" in camera_key.lower():
+                    kp[0] -= self.st[0,3]
+                    kp[1] -= self.st[1,3]
                 u = kp[0] / kp[2] * fx + cx
                 v = kp[1] / kp[2] * fy + cy
-                cv2.circle(img, (int(u), int(v)), 2, (255, 0, 0), 2)
+                cv2.circle(img, (int(u), int(v)), 2, (0, 0, 255), 2)
 
     def start(self):
         while True:
@@ -121,7 +125,8 @@ class ReprojectPoints:
 
 
 if __name__=="__main__":
-    input_dir =Path('/home/d_phil/intentMAPS/test_set/processed/BLACKB4P14S')
+    #input_dir =Path('/home/d_phil/intentMAPS/test_set/processed/27_03_2025__13_59_02/BLACKB4P14F')
+    input_dir = Path('/home/d_phil/intentMAPS/test_set/test_out99/26_03_2025/test1')
     logger.info(input_dir)
     rp = ReprojectPoints(input_dir)
     rp.start()

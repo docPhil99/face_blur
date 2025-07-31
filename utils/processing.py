@@ -59,6 +59,9 @@ class Body_Tracker:
         # For indoor scene or closer range, a higher confidence limits the risk of false positives and increase the precision (~50+)
         self.body_runtime_param.detection_confidence_threshold = conf_threshold
 
+        self.camera_config = self.camera.get_camera_information()
+        self.camera_transform = self.camera_config.camera_configuration.calibration_parameters.stereo_transform.m
+        self.camera_params = self.camera_config.camera_configuration.calibration_parameters
     def save_data(self,dir_name:Path):
         filename = dir_name / Path('bodies.json')
         with open(filename, 'w') as f:
@@ -69,6 +72,60 @@ class Body_Tracker:
             kp = body.keypoint_2d
             for point in kp:
                 cv2.circle(image,(int(point[0]),int(point[1])), 3,(255,0,0),-1)
+
+    def _3D_2D_projection(self, kps_3d, camera_key):
+        if camera_key == 'left':
+            cam = self.camera_params.left_cam
+            xoff = 0
+            yoff =0
+        else:
+            cam = self.camera_params.right_cam
+            xoff = self.camera_transform[0,3] # map the right camera to the correct space
+            yoff = self.camera_transform[1,3]
+        cx = float(cam.cx)
+        cy = float(cam.cy)
+        fx = float(cam.fx)
+        fy = float(cam.fy)
+
+        kps =[]
+        for kp in kps_3d:
+            u = (kp[0]-xoff) / kp[2] * fx + cx
+            v = (kp[1]-yoff) / kp[2] * fy + cy
+            kps.append([u,v])
+        return kps
+
+    def _blur_face(self,image, bbox, scale=1):
+        bbox[0] = bbox[0] - scale
+        bbox[1] = bbox[1] - scale
+        bbox[2] = bbox[2] + scale
+        bbox[3] = bbox[3] + scale
+        bbox = [int(x) for x in bbox]
+        face = image[bbox[1]:bbox[3], bbox[0]:bbox[2], :]
+        if face.shape[0] == 0 or face.shape[1] == 0:
+            logger.debug(face.shape)
+            return image
+        face_blur = cv2.blur(face, (200, 200))
+        image[bbox[1]:bbox[3], bbox[0]:bbox[2], :] = face_blur
+        return image
+
+    def blur_face_regions(self, img, camera_name):
+        """
+        blur each face from the given keypoints
+
+        """
+        for body in self.bodies.body_list:
+            kps_3d = body.keypoint  # all 3d keypoints
+            kps = self._3D_2D_projection(kps_3d, camera_name)
+            left = [0, 0]
+            right = [0, 0]
+            left[0] = min([k[0] for k in kps[26:31]])
+            left[1] = min([k[1] for k in kps[26:31]])
+            right[0] = max([k[0] for k in kps[26:31]])
+            right[1] = max([k[1] for k in kps[26:31]])
+            img = self._blur_face(img,[left[0],left[1],right[0],right[1]],scale=4.0)
+            for kp in kps:
+                cv2.circle(img, (int(kp[0]), int(kp[1])), 2, (255, 0, 0), 2)
+        return img
 
         #kp = self.bodies
     def process_frame(self,frame_num):

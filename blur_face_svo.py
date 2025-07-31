@@ -122,8 +122,10 @@ class SVO_Process:
         img = image.get_data()
         #drop alpha
         img = img[:,:,0:3]
+        img = np.ascontiguousarray(img) # some opencv function need this.
         if blur:
             img,bbox = face_blur.blur(img)
+            img = self.body_tracker.blur_face_regions(img, cam)
             if cam=='left':
                 self.left_face_bbox[filename.stem] = bbox
             else:
